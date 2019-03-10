@@ -1,7 +1,7 @@
 # CapSenseSerial
 
 /*  Arduino Capacitive Sensor with serial interface for threshold setting   14/8/18   Bruce Woolmore
- * send "|" for command mode, 
+ * 11/3/19 WIP!  NEW COMMAND SYNTAX UNDER CONSTRUCTION
  * UNO option uses D5,D7 for soft serial, D4,D2 for cap sense send/sense pins, D6 for digital LOW alert, outputs debug info to std USB serial port.
  * Attiny85 uses D0,D2 (chip ins 5,7) for soft serial, D4,D3 (chip pins 3,2) for cap sense send/sense pins, D1 (chip pin 6) for digital LOW alert
  */
