@@ -11,79 +11,20 @@
 #define ALERT 6  // digital out pin for threshold alert (D1, chip pin 6) (UNO D6)
 #define DELAY 100    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
+#ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
+#else
+#define CapSensePin 3   // used 3 for Attiny85
+#endif
 #define SensorRate 9600
 CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M resistor between pins 4 & 3, pin 3 is sensor pin, add a wire and or foil if desired
 SoftwareSerial Sercom(RX, TX);
 
 bool cmdMode=false;
+bool dbgMode=true;
 int Threshold=500; 
 int Inbyte;
-
-void setup()                    
-{
-   cs.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
-   Sercom.begin(SensorRate);
-   Serial.begin(115200);
-   pinMode(ALERT,OUTPUT);
-   digitalWrite(ALERT, HIGH);
-}
-
-void loop()                    
-{
-   while(Sercom.available()>0)
-       {
-        Inbyte=Sercom.read();
-        // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
-        if(cmdMode) 
-          {
-            Threshold=Inbyte*10;
-            cmdMode=false;
-            #ifdef UNO            
-            Serial.print("Threshold set to "); Serial.print(Threshold,DEC);Serial.write('\n');
-            #endif
-          }
-        else  // not cmd mode
-          {
-            if(Inbyte<10)
-                {
-                  switch (Inbyte)
-                  {
-                  case 1:{
-                      long Mean=Calibrate();
-                      Sercom.print(Mean);
-                      Sercom.write('\n');
-                      break; }
-                  case 2:
-                      Sercom.print(Threshold);
-                      Sercom.write('\n');
-                      break; 
-                  case 3:
-                      cmdMode=true;
-                      #ifdef UNO                  
-                      Serial.print("CMD mode ON\n");
-                      #endif  
-                      break;
-                      break;
-                  }   // end switch      
-                }     // end Inbyte<10
-          }           // end not cmd mode      
-       }              // end while serial
-    long SenseNum =  cs.capacitiveSensor(30);
-    if(SenseNum>Threshold)
-       {
-        Sercom.print(SenseNum);                  // print sensor output 
-        Sercom.write('\n');
-        digitalWrite(ALERT,LOW);
-        delay(200);
-        digitalWrite(ALERT,HIGH);
-        #ifdef UNO        
-        Serial.print("Threshold is "); Serial.print(Threshold,DEC);
-        Serial.print(" Sensenum is "); Serial.print(SenseNum,DEC); Serial.write('\n');
-        #endif
-       }
-    delay(DELAY);                             // arbitrary delay to limit data to serial port 
-}
+int tval;
 
 int Calibrate()
 {
@@ -101,4 +42,82 @@ int Calibrate()
     }
  return mean=mean/50;     
 }
+void diag(char* P)
+  {if (dbgMode) {Sercom.print(P);}  }
+char* nprint(int N)
+  {
+    char buffer[100];
+    sprintf(buffer,"%d \n",N);
+    return buffer;
+  } 
+
+void setup()                    
+{
+   cs.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
+   Sercom.begin(SensorRate);
+   Serial.begin(115200);
+   pinMode(ALERT,OUTPUT);
+   digitalWrite(ALERT, HIGH);
+}
+
+void loop()                    
+{
+   while(Sercom.available()>0)
+       {
+        Inbyte=Sercom.read();
+        // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
+        if(Inbyte>57)
+          {
+             if(Inbyte==67) // Command=C=Calibrate
+                {diag(nprint(Calibrate()));}
+             else
+                 {if(Inbyte==68)  // Command="D"=toggle Debug mode
+                            {if(!dbgMode) 
+                              {dbgMode=true; diag("debug mode ON");}
+                             else {diag("debug mode OFF"); dbgMode=false;}  
+                             }  
+                  else          
+                    {if(Inbyte==81)  // Command="Q"=Query Threshold value
+                            {diag(nprint(Threshold)); }
+                    else if(Inbyte==126)  // Command="~"=Command Mode ON
+                          { cmdMode=true;   diag("CMD mode ON\n"); }
+                    }   // end I=81
+                 }      // end I=68
+            }     // end I>57
+        else  //  Inbyte .LE. 57
+           {
+            if(Inbyte>47)
+               {
+                tval=Inbyte&0x40;
+                Threshold=(Threshold*10)+tval;
+               }
+            else // inbyte <47 
+              {
+                 if(Inbyte==10)
+                   {cmdMode=false;
+                   Threshold=tval;
+                   diag(nprint(Threshold));
+                    } 
+                 else {cmdMode=false;}    
+               }
+           }    // end Inbyte .LE. 57                            
+
+        }              // end while serial
+    long SenseNum =  cs.capacitiveSensor(30);
+    if(SenseNum>Threshold)
+       {
+        // sprintf(buffer,"%d \n",SenseNum);
+        // diag(buffer);                  // print sensor output 
+        digitalWrite(ALERT,LOW);
+        delay(200);
+        digitalWrite(ALERT,HIGH);
+        #ifdef UNO        
+        Serial.print("Threshold is "); Serial.print(Threshold,DEC);
+        Serial.print(" Sensenum is "); Serial.print(SenseNum,DEC); Serial.write('\n');
+        #endif
+       }
+    delay(DELAY);                             // arbitrary delay to limit data to serial port 
+}
+
+
 
