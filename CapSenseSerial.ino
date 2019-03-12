@@ -28,22 +28,21 @@ int tval;
 
 int Calibrate()
 {
- long mean=0; long x=0; long y=0; long z=0;
+ long  max=0; long z=0;
  for (int i=0; i <= 50; i++)
-    {
-      x=y;y=z; z=cs.capacitiveSensor(30);
-      if(y>(x+z)) {y=(x+z)/2;}
-      mean=(mean+y);
-      #ifdef UNO        
-      Serial.print(z,DEC); Serial.write('\n');
-      #else
-      delay(20); 
-      #endif
+    { // get highest of 50 consecutive reads
+      z=cs.capacitiveSensor(30);
+      if(z>max) {max=z;}
+      delay(20);
     }
- return mean=mean/50;     
+ max=max*1.1; // calc threshold at 10% over highest   
+ diag(nprint(max));
+ return max;     
 }
+
 void diag(char* P)
   {if (dbgMode) {Sercom.print(P);}  }
+
 char* nprint(int N)
   {
     char buffer[100];
@@ -68,10 +67,13 @@ void loop()
         // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
         if(Inbyte>57)
           {
-             if(Inbyte==67) // Command=C=Calibrate
-                {diag(nprint(Calibrate()));}
+             if((cmdMode)&&(Inbyte==67)) // Command=C=Calibrate
+                {
+                  Threshold=Calibrate();
+                  diag(nprint(Threshold));
+                }
              else
-                 {if(Inbyte==68)  // Command="D"=toggle Debug mode
+                 {if((cmdMode)&&(Inbyte==68))  // Command="D"=toggle Debug mode
                             {if(!dbgMode) 
                               {dbgMode=true; diag("debug mode ON");}
                              else {diag("debug mode OFF"); dbgMode=false;}  
@@ -80,15 +82,21 @@ void loop()
                     {if(Inbyte==81)  // Command="Q"=Query Threshold value
                             {diag(nprint(Threshold)); }
                     else if(Inbyte==126)  // Command="~"=Command Mode ON
-                          { cmdMode=true;   diag("CMD mode ON\n"); }
+                          {
+                            cmdMode=true;
+                            tval=0;
+                            diag("CMD mode ON\n");
+                          }
                     }   // end I=81
                  }      // end I=68
             }     // end I>57
         else  //  Inbyte .LE. 57
            {
-            if(Inbyte>47)
+            if((Inbyte>47)&&(cmdMode))
                {
                 tval=Inbyte&0x40;
+                diag("tval:");
+                diag(nprint(tval));
                 Threshold=(Threshold*10)+tval;
                }
             else // inbyte <47 
@@ -106,8 +114,7 @@ void loop()
     long SenseNum =  cs.capacitiveSensor(30);
     if(SenseNum>Threshold)
        {
-        // sprintf(buffer,"%d \n",SenseNum);
-        // diag(buffer);                  // print sensor output 
+        diag(nprint(SenseNum));                  // print sensor output 
         digitalWrite(ALERT,LOW);
         delay(200);
         digitalWrite(ALERT,HIGH);
