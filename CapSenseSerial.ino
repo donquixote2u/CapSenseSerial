@@ -8,13 +8,14 @@
 #define UNO   // comment out for Attiny version, serial debug dropped 
 #define RX 5 // *** D0, Pin 5  UNO D5
 #define TX 7 // *** D2, Pin 7  UNO D7
-#define ALERT 6  // digital out pin for threshold alert (D1, chip pin 6) (UNO D6)
 #define DELAY 100    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
 #ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
+#define ALERT 6  // digital out pin for threshold alert  (UNO D6)
 #else
 #define CapSensePin 3   // used 3 for Attiny85
+#define ALERT 1  // digital out pin for threshold alert (D1, chip pin 6) 
 #endif
 #define SensorRate 9600
 CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M resistor between pins 4 & 3, pin 3 is sensor pin, add a wire and or foil if desired
@@ -22,9 +23,10 @@ SoftwareSerial Sercom(RX, TX);
 
 bool cmdMode=false;
 bool dbgMode=true;
-int Threshold=500; 
+unsigned int Threshold=500; 
 int Inbyte;
-int tval;
+unsigned int tval;
+char buffer[24];
 
 int Calibrate()
 {
@@ -45,10 +47,14 @@ void diag(char* P)
 
 char* nprint(int N)
   {
-    char buffer[100];
     sprintf(buffer,"%d \n",N);
     return buffer;
-  } 
+  }
+char* xprint(int N)
+  {
+    sprintf(buffer,"%x \n",N);
+    return buffer;
+  }  
 
 void setup()                    
 {
@@ -89,12 +95,13 @@ void loop()
                           }
                     }   // end I=81
                  }      // end I=68
+                 // cmdMode=false;   // cmd processed, so set flag off    
             }     // end I>57
         else  //  Inbyte .LE. 57
            {
             if((Inbyte>47)&&(cmdMode))
                {
-                tval=Inbyte&0x40;
+                tval=Inbyte-0;
                 diag("tval:");
                 diag(nprint(tval));
                 Threshold=(Threshold*10)+tval;
@@ -118,10 +125,7 @@ void loop()
         digitalWrite(ALERT,LOW);
         delay(200);
         digitalWrite(ALERT,HIGH);
-        #ifdef UNO        
-        Serial.print("Threshold is "); Serial.print(Threshold,DEC);
-        Serial.print(" Sensenum is "); Serial.print(SenseNum,DEC); Serial.write('\n');
-        #endif
+        
        }
     delay(DELAY);                             // arbitrary delay to limit data to serial port 
 }
