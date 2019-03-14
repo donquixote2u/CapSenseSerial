@@ -1,0 +1,51 @@
+   while(Sercom.available()>0)
+       {
+        Inbyte=Sercom.read();
+        // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
+        if(Inbyte>57)
+          {
+             if((cmdMode)&&(Inbyte==67)) // Command=C=Calibrate
+                {
+                  Threshold=Calibrate();
+                  diag(nprint(Threshold));
+                }
+             else
+                 {if((cmdMode)&&(Inbyte==68))  // Command="D"=toggle Debug mode
+                            {if(!dbgMode) 
+                              {dbgMode=true; diag("debug mode ON");}
+                             else {diag("debug mode OFF"); dbgMode=false;}  
+                             }  
+                  else          
+                    {if(Inbyte==81)  // Command="Q"=Query Threshold value
+                            {diag(nprint(Threshold)); }
+                    else if(Inbyte==126)  // Command="~"=Command Mode ON
+                          {
+                            cmdMode=true;
+                            tval=0;
+                            diag("CMD mode ON\n");
+                          }
+                    }   // end I=81
+                 }      // end I=68
+                 // cmdMode=false;   // cmd processed, so set flag off    
+            }     // end I>57
+        else  //  Inbyte .LE. 57
+           {
+            if((Inbyte>47)&&(cmdMode))
+               {
+                tval=Inbyte-0;
+                diag("tval:");
+                diag(nprint(tval));
+                Threshold=(Threshold*10)+tval;
+               }
+            else // inbyte <47 
+              {
+                 if(Inbyte==10)
+                   {cmdMode=false;
+                   Threshold=tval;
+                   diag(nprint(Threshold));
+                    } 
+                 else {cmdMode=false;}    
+               }
+           }    // end Inbyte .LE. 57                            
+
+        }              // end while serial

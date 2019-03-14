@@ -71,36 +71,38 @@ void loop()
        {
         Inbyte=Sercom.read();
         // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
-        if(Inbyte>57)
+        if(Inbyte>96)
           {
-             if((cmdMode)&&(Inbyte==67)) // Command=C=Calibrate
-                {
-                  Threshold=Calibrate();
-                  diag(nprint(Threshold));
-                }
-             else
-                 {if((cmdMode)&&(Inbyte==68))  // Command="D"=toggle Debug mode
-                            {if(!dbgMode) 
-                              {dbgMode=true; diag("debug mode ON");}
-                             else {diag("debug mode OFF"); dbgMode=false;}  
-                             }  
-                  else          
-                    {if(Inbyte==81)  // Command="Q"=Query Threshold value
-                            {diag(nprint(Threshold)); }
-                    else if(Inbyte==126)  // Command="~"=Command Mode ON
-                          {
-                            cmdMode=true;
-                            tval=0;
-                            diag("CMD mode ON\n");
-                          }
-                    }   // end I=81
-                 }      // end I=68
-                 // cmdMode=false;   // cmd processed, so set flag off    
-            }     // end I>57
-        else  //  Inbyte .LE. 57
+           int testchar=Inbyte^0x60;
+           diag("Cmd=");
+           diag(xprint(testchar));
+           switch (testchar)
+              {
+               case 3:{
+                 diag("cmd=c\n");
+                 Threshold=Calibrate();
+                 diag(nprint(Threshold));
+                 break; }
+               case 4:
+                 diag("cmd=d\n");
+                 if(!dbgMode) 
+                    {dbgMode=true; diag("debug mode ON");}
+                 else {diag("debug mode OFF"); dbgMode=false;}  
+                 break; 
+               case 17:{
+                 diag("cmd=q\n");
+                 diag(nprint(Threshold));
+                 break; }  
+               break;
+               }   // end switch 
+           }     // end I>96
+        else  //  Inbyte .LE. 96
            {
-            if((Inbyte>47)&&(cmdMode))
+           if(Inbyte>47)
                {
+                int testchar=Inbyte^0x30;
+                diag("Cmd=");
+                diag(xprint(testchar));
                 tval=Inbyte-0;
                 diag("tval:");
                 diag(nprint(tval));
@@ -109,14 +111,15 @@ void loop()
             else // inbyte <47 
               {
                  if(Inbyte==10)
-                   {cmdMode=false;
+                   {
+                   diag("LF:");
+                   cmdMode=false;
                    Threshold=tval;
                    diag(nprint(Threshold));
-                    } 
+                   } 
                  else {cmdMode=false;}    
                }
            }    // end Inbyte .LE. 57                            
-
         }              // end while serial
     long SenseNum =  cs.capacitiveSensor(30);
     if(SenseNum>Threshold)
