@@ -1,4 +1,4 @@
-#include <CapacitiveSensor.h>
+ #include <CapacitiveSensor.h>
 #include <SoftwareSerial.h>
 /*  Arduino Capacitive Sensor with serial interface for threshold setting   14/8/18   Bruce Woolmore
  * send "|" for command mode, then decimal value of next char * 10 = threshold for alert (sets alert pin, sends value to serial port)
@@ -8,7 +8,7 @@
 #define UNO   // comment out for Attiny version, serial debug dropped 
 #define RX 5 // *** D0, Pin 5  UNO D5
 #define TX 7 // *** D2, Pin 7  UNO D7
-#define DELAY 100    // delay in millisecs between cap tests
+#define DELAY 1000    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
 #ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
@@ -21,7 +21,7 @@
 CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M resistor between pins 4 & 3, pin 3 is sensor pin, add a wire and or foil if desired
 SoftwareSerial Sercom(RX, TX);
 
-bool cmdMode=false;
+bool editMode=false;
 bool dbgMode=true;
 unsigned int Threshold=500; 
 int Inbyte;
@@ -71,10 +71,13 @@ void loop()
        {
         Inbyte=Sercom.read();
         // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
+        diag("char read:");
+        diag(xprint(Inbyte));
         if(Inbyte>96)
           {
+           editMode=false; 
            int testchar=Inbyte^0x60;
-           diag("Cmd=");
+           diag("casetest=");
            diag(xprint(testchar));
            switch (testchar)
               {
@@ -98,28 +101,29 @@ void loop()
            }     // end I>96
         else  //  Inbyte .LE. 96
            {
-           if(Inbyte>47)
+           if(Inbyte>47)  
+           // hex values 30-3f = digits so assume entering new threshold
                {
+                editMode=true;
                 int testchar=Inbyte^0x30;
-                diag("Cmd=");
+                diag("digit=");
                 diag(xprint(testchar));
                 tval=Inbyte-0;
                 diag("tval:");
                 diag(nprint(tval));
                 Threshold=(Threshold*10)+tval;
                }
-            else // inbyte <47 
+            else // inbyte <47 invisible control chars
               {
-                 if(Inbyte==10)
+                 if(Inbyte==13 && editMode)
                    {
-                   diag("LF:");
-                   cmdMode=false;
+                   diag("change Threshold:");
                    Threshold=tval;
                    diag(nprint(Threshold));
                    } 
-                 else {cmdMode=false;}    
+                 editMode=false;    
                }
-           }    // end Inbyte .LE. 57                            
+           }    // end Inbyte .LE. 96                            
         }              // end while serial
     long SenseNum =  cs.capacitiveSensor(30);
     if(SenseNum>Threshold)
@@ -132,6 +136,4 @@ void loop()
        }
     delay(DELAY);                             // arbitrary delay to limit data to serial port 
 }
-
-
 
