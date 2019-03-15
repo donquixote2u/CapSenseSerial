@@ -8,7 +8,7 @@
 #define UNO   // comment out for Attiny version, serial debug dropped 
 #define RX 5 // *** D0, Pin 5  UNO D5
 #define TX 7 // *** D2, Pin 7  UNO D7
-#define DELAY 1000    // delay in millisecs between cap tests
+#define DELAY 200    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
 #ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
@@ -22,7 +22,7 @@ CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M
 SoftwareSerial Sercom(RX, TX);
 
 bool editMode=false;
-bool dbgMode=true;
+bool dbgMode=false;
 unsigned int Threshold=500; 
 int Inbyte;
 unsigned int tval;
@@ -70,15 +70,12 @@ void loop()
    while(Sercom.available()>0)
        {
         Inbyte=Sercom.read();
-        // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
-        diag("char read:");
-        diag(xprint(Inbyte));
+        // diag("char read:"); diag(xprint(Inbyte));
         if(Inbyte>96)
           {
            editMode=false; 
            int testchar=Inbyte^0x60;
-           diag("casetest=");
-           diag(xprint(testchar));
+           // diag("casetest=");  diag(xprint(testchar));
            switch (testchar)
               {
                case 3:{
@@ -104,14 +101,15 @@ void loop()
            if(Inbyte>47)  
            // hex values 30-3f = digits so assume entering new threshold
                {
-                editMode=true;
                 int testchar=Inbyte^0x30;
                 diag("digit=");
                 diag(xprint(testchar));
-                tval=Inbyte-0;
+                if(editMode) 
+                   {tval=tval*10+testchar;}
+                else
+                   {editMode=true;tval=testchar; }
                 diag("tval:");
-                diag(nprint(tval));
-                Threshold=(Threshold*10)+tval;
+                diag(nprint(tval));   
                }
             else // inbyte <47 invisible control chars
               {
@@ -130,7 +128,7 @@ void loop()
        {
         diag(nprint(SenseNum));                  // print sensor output 
         digitalWrite(ALERT,LOW);
-        delay(200);
+        delay(20);
         digitalWrite(ALERT,HIGH);
         
        }
