@@ -1,4 +1,4 @@
-#include <CapacitiveSensor.h>
+ #include <CapacitiveSensor.h>
 #include <SoftwareSerial.h>
 /*  Arduino Capacitive Sensor with serial interface for threshold setting   14/8/18   Bruce Woolmore
  * send "|" for command mode, then decimal value of next char * 10 = threshold for alert (sets alert pin, sends value to serial port)
@@ -8,17 +8,53 @@
 #define UNO   // comment out for Attiny version, serial debug dropped 
 #define RX 5 // *** D0, Pin 5  UNO D5
 #define TX 7 // *** D2, Pin 7  UNO D7
-#define ALERT 6  // digital out pin for threshold alert (D1, chip pin 6) (UNO D6)
-#define DELAY 100    // delay in millisecs between cap tests
+#define DELAY 200    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
+#ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
+#define ALERT 6  // digital out pin for threshold alert  (UNO D6)
+#else
+#define CapSensePin 3   // used 3 for Attiny85
+#define ALERT 1  // digital out pin for threshold alert (D1, chip pin 6) 
+#endif
 #define SensorRate 9600
 CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M resistor between pins 4 & 3, pin 3 is sensor pin, add a wire and or foil if desired
 SoftwareSerial Sercom(RX, TX);
 
-bool cmdMode=false;
-int Threshold=500; 
+bool editMode=false;
+bool dbgMode=false;
+unsigned int Threshold=500; 
 int Inbyte;
+unsigned int tval;
+char buffer[24];
+
+int Calibrate()
+{
+ long  max=0; long z=0;
+ for (int i=0; i <= 50; i++)
+    { // get highest of 50 consecutive reads
+      z=cs.capacitiveSensor(30);
+      if(z>max) {max=z;}
+      delay(20);
+    }
+ max=max*1.1; // calc threshold at 10% over highest   
+ diag(nprint(max));
+ return max;     
+}
+
+void diag(char* P)
+  {if (dbgMode) {Sercom.print(P);}  }
+
+char* nprint(int N)
+  {
+    sprintf(buffer,"%d \n",N);
+    return buffer;
+  }
+char* xprint(int N)
+  {
+    sprintf(buffer,"%x \n",N);
+    return buffer;
+  }  
 
 void setup()                    
 {
@@ -34,71 +70,68 @@ void loop()
    while(Sercom.available()>0)
        {
         Inbyte=Sercom.read();
-        // DEBUG Serial.print("READ IN:\n");Serial.write(Inbyte);Serial.write(':');Serial.print(Inbyte,DEC);Serial.write('\n');
-        if(cmdMode) 
+        // diag("char read:"); diag(xprint(Inbyte));
+        if(Inbyte>96)
           {
-            Threshold=Inbyte*10;
-            cmdMode=false;
-            #ifdef UNO            
-            Serial.print("Threshold set to "); Serial.print(Threshold,DEC);Serial.write('\n');
-            #endif
-          }
-        else  // not cmd mode
-          {
-            if(Inbyte<10)
-                {
-                  switch (Inbyte)
-                  {
-                  case 1:{
-                      long Mean=Calibrate();
-                      Sercom.print(Mean);
-                      Sercom.write('\n');
-                      break; }
-                  case 2:
-                      Sercom.print(Threshold);
-                      Sercom.write('\n');
-                      break; 
-                  case 3:
-                      cmdMode=true;
-                      #ifdef UNO                  
-                      Serial.print("CMD mode ON\n");
-                      #endif  
-                      break;
-                      break;
-                  }   // end switch      
-                }     // end Inbyte<10
-          }           // end not cmd mode      
-       }              // end while serial
+           editMode=false; 
+           int testchar=Inbyte^0x60;
+           // diag("casetest=");  diag(xprint(testchar));
+           switch (testchar)
+              {
+               case 3:{
+                 diag("cmd=c\n");
+                 Threshold=Calibrate();
+                 diag(nprint(Threshold));
+                 break; }
+               case 4:
+                 diag("cmd=d\n");
+                 if(!dbgMode) 
+                    {dbgMode=true; diag("debug mode ON");}
+                 else {diag("debug mode OFF"); dbgMode=false;}  
+                 break; 
+               case 17:{
+                 diag("cmd=q\n");
+                 diag(nprint(Threshold));
+                 break; }  
+               break;
+               }   // end switch 
+           }     // end I>96
+        else  //  Inbyte .LE. 96
+           {
+           if(Inbyte>47)  
+           // hex values 30-3f = digits so assume entering new threshold
+               {
+                int testchar=Inbyte^0x30;
+                diag("digit=");
+                diag(xprint(testchar));
+                if(editMode) 
+                   {tval=tval*10+testchar;}
+                else
+                   {editMode=true;tval=testchar; }
+                diag("tval:");
+                diag(nprint(tval));   
+               }
+            else // inbyte <47 invisible control chars
+              {
+                 if(Inbyte==13 && editMode)
+                   {
+                   diag("change Threshold:");
+                   Threshold=tval;
+                   diag(nprint(Threshold));
+                   } 
+                 editMode=false;    
+               }
+           }    // end Inbyte .LE. 96                            
+        }              // end while serial
     long SenseNum =  cs.capacitiveSensor(30);
     if(SenseNum>Threshold)
        {
-        Sercom.print(SenseNum);                  // print sensor output 
-        Sercom.write('\n');
+        diag(nprint(SenseNum));                  // print sensor output 
         digitalWrite(ALERT,LOW);
-        delay(200);
+        delay(20);
         digitalWrite(ALERT,HIGH);
-        #ifdef UNO        
-        Serial.print("Threshold is "); Serial.print(Threshold,DEC);
-        Serial.print(" Sensenum is "); Serial.print(SenseNum,DEC); Serial.write('\n');
-        #endif
+        
        }
     delay(DELAY);                             // arbitrary delay to limit data to serial port 
-}
-
-int Calibrate()
-{
- long mean=0; long x=0; long y=0; long z=0;
- for (int i=0; i <= 50; i++)
-    {
-      x=y;y=z; z=cs.capacitiveSensor(30);
-      if(y>(x+z)) {y=(x+z)/2;}
-      mean=(mean+y);
-      #ifdef UNO        
-      Serial.print(z,DEC); Serial.write('\n');
-      #else
-      delay(20); 
-      #endif
-    }
- return mean=mean/50;     
 }
 
