@@ -1,21 +1,23 @@
- #include <CapacitiveSensor.h>
+#include <CapacitiveSensor.h>
 #include <SoftwareSerial.h>
 /*  Arduino Capacitive Sensor with serial interface for threshold setting   14/8/18   Bruce Woolmore
  * send "|" for command mode, then decimal value of next char * 10 = threshold for alert (sets alert pin, sends value to serial port)
  * UNO uses D5,D7 for soft serial, D4,D2 for cap sense send/sense pins, D6 for digital LOW alert
  * Attiny85 uses D0,D2 (chip ins 5,7) for soft serial, D4,D3 (chip pins 3,2) for cap sense send/sense pins, D1 (chip pin 6) for digital LOW alert
  */
-#define UNO   // comment out for Attiny version, serial debug dropped 
-#define RX 5 // *** D0, Pin 5  UNO D5
-#define TX 7 // *** D2, Pin 7  UNO D7
+// #define UNO   // comment out for Attiny version, serial debug dropped 
 #define DELAY 200    // delay in millisecs between cap tests
 #define CapSendPin 4    // D4 used for both Uno and Attiny85
 #ifdef UNO
 #define CapSensePin 2   // used 2 for Uno, 3 for Attiny85
-#define ALERT 6  // digital out pin for threshold alert  (UNO D6)
+#define RX 5      // *** D0, Pin 5  UNO D5 softserial RX
+#define TX 7      // *** D2, Pin 7  UNO D7
+#define ALERT 6   // digital out pin for threshold alert  (UNO D6)
 #else
 #define CapSensePin 3   // used 3 for Attiny85
-#define ALERT 1  // digital out pin for threshold alert (D1, chip pin 6) 
+#define RX 0      // *** D0, Pin 5  UNO D5 softserial RX
+#define TX 2      // *** D2, Pin 7  UNO D7
+#define ALERT 1   // digital out pin for threshold alert (D1, chip pin 6) 
 #endif
 #define SensorRate 9600
 CapacitiveSensor   cs = CapacitiveSensor(CapSendPin, CapSensePin);        // 10M resistor between pins 4 & 3, pin 3 is sensor pin, add a wire and or foil if desired
@@ -60,7 +62,6 @@ void setup()
 {
    cs.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
    Sercom.begin(SensorRate);
-   Serial.begin(115200);
    pinMode(ALERT,OUTPUT);
    digitalWrite(ALERT, HIGH);
 }
