@@ -11,3 +11,5 @@ if digits 0-9 followed by <CR> (x13) received on  RX line; set Threshold value t
  sending "q" (query) to the serrial port will return the current threshold value
  sending "d" sets debug mode, diagnostics output to serial port 
 sending "c" activates a calibrate mode;  the  sensor is monitored for 50 reads, and a value 10% above the maximum sense value  read is used to set  the threshold value (the default value at startup is 500)
+
+Test configuration for  Attiny85 was  3v3  supply, std (default)  1 mhz clock
